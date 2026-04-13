@@ -45,7 +45,7 @@ First, define your event payload as a standard Go struct.
 
 ```go
 func main() {
-    doc := asynapi.NewAsyncAPI("User Pipeline", "1.0.0", "Kafka Event Driven Service")
+    doc := asyncapi.NewAsyncAPI("User Pipeline", "1.0.0", "Kafka Event Driven Service")
 
     // Define a Secure Kafka Broker
     doc.AddServer("kafka-prod", "kafka.internal.net:9092", "kafka", "Prod Cluster").
@@ -56,7 +56,7 @@ func main() {
     signupChan.AddMessage(&UserSignup{})
 
     // The Server publishes to this topic
-    doc.AddOperation(signupChan, "send")
+    doc.AddOperation(signupChan, "send").SetKafkaConsumerGroup("user-group")
 
     http.HandleFunc("/docs", doc.Handler)
     http.ListenAndServe(":8080", nil)
@@ -73,7 +73,7 @@ type ProcessPayment struct {
 }
 
 func main() {
-    doc := asynapi.NewAsyncAPI("Payment Gateway", "1.2.0", "RabbitMQ Task Queue")
+    doc := asyncapi.NewAsyncAPI("Payment Gateway", "1.2.0", "RabbitMQ Task Queue")
 
     // Define an AMQP Server with Basic Auth
     doc.AddServer("rmq-prod", "amqp.example.com:5672", "amqp", "Main RabbitMQ Node").
@@ -100,7 +100,7 @@ type LiveTicker struct {
 }
 
 func main() {
-    doc := asynapi.NewAsyncAPI("Market Data API", "2.0.0", "WebSocket Streaming Server")
+    doc := asyncapi.NewAsyncAPI("Market Data API", "2.0.0", "WebSocket Streaming Server")
 
     // Define a Secure WebSocket Server
     doc.AddServer("ws-gateway", "wss://api.example.com/ws", "wss", "Public WebSocket Gateway").
