@@ -76,6 +76,12 @@ type Message struct {
 	ChannelAddress string         `json:"-"`
 }
 
+type KafkaConsumerGroupIDSchema struct {
+	Type    string   `json:"type,omitempty"`
+	Enum    []string `json:"enum,omitempty"`
+	GroupID string   `json:"-"`
+}
+
 // ==========================================
 // BUILDER METHODS
 // ==========================================
@@ -226,11 +232,42 @@ func (doc *AsyncAPIDocument) AddOperation(channel *Channel, action string) *Oper
 		Channel: &ChannelRef{
 			Ref: fmt.Sprintf("#/channels/%s", strings.ReplaceAll(channel.Address, "/", "-")),
 		},
+		Bindings: make(map[string]any),
 	}
 
 	operationKey := fmt.Sprintf("%s-%s", action, strings.ReplaceAll(channel.Address, "/", "-"))
 	doc.Operations[operationKey] = op
 	return op
+}
+
+// SetKafkaConsumerGroup safely links a consumer group ID to the operation
+// and returns the schema object for direct access.
+func (op *Operation) SetKafkaConsumerGroup(groupID string) *KafkaConsumerGroupIDSchema {
+	// 1. Ensure the top-level map exists
+	if op.Bindings == nil {
+		op.Bindings = make(map[string]any)
+	}
+
+	// 2. Fetch or safely create the "kafka" map
+	kafkaBindingMap, ok := op.Bindings["kafka"].(map[string]any)
+	if !ok {
+		// If it's not a map (or doesn't exist), create it AND assign it back
+		kafkaBindingMap = make(map[string]any)
+		op.Bindings["kafka"] = kafkaBindingMap
+	}
+
+	// 3. Create your struct
+	binding := &KafkaConsumerGroupIDSchema{
+		Type:    "string",
+		Enum:    []string{groupID},
+		GroupID: groupID, // Set the hidden field
+	}
+
+	// 4. Assign the struct to the map
+	kafkaBindingMap["groupId"] = binding
+
+	// Return the struct so the user has direct access to it
+	return binding
 }
 
 // SetReply links a response channel to the current operation to establish a Request-Reply pattern.
@@ -243,14 +280,24 @@ func (op *Operation) SetReply(replyChannel *Channel) *Operation {
 	return op
 }
 
-// AddHttpOperation links an action and defines the HTTP method binding.
+// AddHttpOperation safely links an action and defines the HTTP method binding.
 func (doc *AsyncAPIDocument) AddHttpOperation(channel *Channel, action string, httpMethod string) *Operation {
 	op := doc.AddOperation(channel, action)
-	op.Bindings = map[string]any{
-		"http": map[string]any{
-			"method": strings.ToUpper(httpMethod),
-		},
+
+	if op.Bindings == nil {
+		op.Bindings = make(map[string]any)
 	}
+
+	// Safely fetch or create the HTTP map
+	httpBindings, ok := op.Bindings["http"].(map[string]any)
+	if !ok {
+		httpBindings = make(map[string]any)
+		op.Bindings["http"] = httpBindings
+	}
+
+	// Assign the method without deleting other potential HTTP bindings
+	httpBindings["method"] = strings.ToUpper(httpMethod)
+
 	return op
 }
 
